@@ -215,12 +215,13 @@ function saveBookings() {
 let bookings = loadBookings();
 let viewDate = fmtDate(new Date());
 
-// 同房同日，開始 < 既有結束 且 結束 > 既有開始 即重疊；首尾相接不算
+// 同房同日且時段有任何重疊即視為衝突（首尾相接不算）
 function findOverlap(room, date, start, end) {
-  const s = toMinutes(start), e = toMinutes(end);
+  const s = toMinutes(start);
+  const e = toMinutes(end);
   return bookings.find(b =>
     b.room === room && b.date === date &&
-    s < toMinutes(b.end) && e > toMinutes(b.start)
+    s < toMinutes(b.end) && toMinutes(b.start) < e
   );
 }
 
