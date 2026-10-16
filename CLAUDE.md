@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 現況
 
-目前儲存庫只有 [spec.md](spec.md)（繁體中文需求規格，「會議室預約看板」），尚無程式碼、建置、lint 或測試指令。實作前請先閱讀 spec.md，其第 6 節驗收標準即為驗證依據。
+儲存庫包含 [spec.md](spec.md)（繁體中文需求規格，「會議室預約看板」）、單一檔案實作 [index.html](index.html)，以及點交紀錄 [bugs.md](bugs.md)。無建置、lint 或測試指令，以瀏覽器開啟 index.html 驗證。修改前請先閱讀 spec.md，其第 6 節驗收標準即為驗證依據。已實作：日視圖時間軸、新增／取消預約、重疊檢查、localStorage 保存、匯出 CSV（僅匯出全部預約，不含匯入）。
 
 ## 規格中影響架構的硬性限制
 
