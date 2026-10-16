@@ -81,6 +81,7 @@
   <button type="button" id="btnToday">今天</button>
   <button type="button" id="btnNext">後一天 ▶</button>
   <span class="date-label" id="dateLabel"></span>
+  <button type="button" id="btnExport">匯出 CSV</button>
 </div>
 
 <div class="timeline-wrap"><div class="timeline" id="timeline"></div></div>
@@ -269,6 +270,35 @@ function deleteBooking(id) {
   render();
 }
 
+// ===== 匯出 CSV =====
+// 欄位加雙引號並跳脫；開頭為 = + - @ 的文字加 ' 前綴，避免 Excel 當成公式執行
+function csvCell(v) {
+  let s = String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+// 匯出所有預約（依日期、開始時間、會議室排序）
+function exportCsv() {
+  if (!bookings.length) { alert('目前沒有任何預約可匯出。'); return; }
+  const rows = bookings.slice().sort((a, b) =>
+    a.date.localeCompare(b.date) || toMinutes(a.start) - toMinutes(b.start) ||
+    ROOMS.indexOf(a.room) - ROOMS.indexOf(b.room));
+  const lines = [['日期', '會議室', '開始時間', '結束時間', '會議主題', '預約人姓名']]
+    .concat(rows.map(b => [b.date, b.room, b.start, b.end, b.title, b.name]))
+    .map(r => r.map(csvCell).join(','));
+  // 加上 BOM 讓 Excel 正確顯示繁體中文
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '會議室預約_' + fmtDate(new Date()) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ===== 初始化表單 =====
 function initForm() {
   $('fRoom').innerHTML = ROOMS.map(r => '<option>' + r + '</option>').join('');
@@ -305,6 +335,7 @@ function initForm() {
   $('btnPrev').addEventListener('click', () => shiftDate(-1));
   $('btnNext').addEventListener('click', () => shiftDate(1));
   $('btnToday').addEventListener('click', () => setViewDate(fmtDate(new Date())));
+  $('btnExport').addEventListener('click', exportCsv);
 }
 
 initForm();
