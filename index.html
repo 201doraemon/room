@@ -177,6 +177,7 @@
   </section>
 </div>
 
+<script src="app.js"></script>
 <script>
 // ===== 設定常數（可於此調整）=====
 const ROOMS = ['A 會議室', 'B 會議室', 'C 會議室']; // 會議室清單（3～5 間）
@@ -214,16 +215,6 @@ function saveBookings() {
 
 let bookings = loadBookings();
 let viewDate = fmtDate(new Date());
-
-// 同房同日且時段有任何重疊即視為衝突（首尾相接不算）
-function findOverlap(room, date, start, end) {
-  const s = toMinutes(start);
-  const e = toMinutes(end);
-  return bookings.find(b =>
-    b.room === room && b.date === date &&
-    s < toMinutes(b.end) && toMinutes(b.start) < e
-  );
-}
 
 // 回傳錯誤訊息；無錯誤回傳空字串
 function validate(v) {

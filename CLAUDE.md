@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 現況
 
-儲存庫包含 [spec.md](spec.md)（繁體中文需求規格，「會議室預約看板」）、單一檔案實作 [index.html](index.html)，以及點交紀錄 [bugs.md](bugs.md)。無建置、lint 或測試指令，以瀏覽器開啟 index.html 驗證。修改前請先閱讀 spec.md，其第 6 節驗收標準即為驗證依據。已實作：日視圖時間軸、新增／取消預約、重疊檢查、localStorage 保存、匯出 CSV（僅匯出全部預約，不含匯入）。
+儲存庫包含 [spec.md](spec.md)（繁體中文需求規格，「會議室預約看板」）、實作 [index.html](index.html) 與 [app.js](app.js)（衝突判斷函式 `findOverlap`），以及點交紀錄 [bugs.md](bugs.md)。無建置、lint 或測試指令，以瀏覽器開啟 index.html 驗證。修改前請先閱讀 spec.md，其第 6 節驗收標準即為驗證依據。已實作：日視圖時間軸、新增／取消預約、重疊檢查、localStorage 保存、匯出 CSV（僅匯出全部預約，不含匯入）。
 
 ## 規格中影響架構的硬性限制
 
-- **純前端、單一 HTML 檔**（可內含 CSS/JS），直接以瀏覽器開啟即可用；不得有後端、建置步驟或資料庫。
+- **純前端，index.html + app.js + test.html 三檔，禁止再拆分其他檔案、禁止外部框架**，直接以瀏覽器開啟即可用；不得有後端、建置步驟或資料庫。
 - **資料只存 localStorage**。已知限制：各瀏覽器資料互不相通，無法跨人員防撞時段（升級路徑為輕量後端如 SQLite，但不在 MVP 範圍）。
 - 會議室清單（3～5 間）、可預約時段（暫定 08:00–18:00）、時間單位（30 分鐘）皆以**設定常數**集中維護，不做管理介面。
 - 時間以本機時區為準；需響應式（約 375px 手機寬度不破版，時間軸可橫向捲動）。
@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 開發規範
 
-- 本專案為單一 HTML 檔案，檔名固定為 `index.html`；禁止拆分多檔，禁止引入外部框架。
+- 本專案為 index.html + app.js + test.html 三檔；禁止再拆分其他檔案，禁止引入外部框架。
 - 所有介面文字與程式註解一律使用繁體中文。
 - 每次修改後，用一句話說明改了什麼。
 
