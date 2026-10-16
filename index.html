@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>會議室預約看板</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    background: #f4f6f8; color: #222;
+  }
+  h1 { margin: 0 0 12px; font-size: 20px; }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar .date-label { font-weight: bold; min-width: 150px; text-align: center; }
+  button {
+    font: inherit; padding: 6px 12px; border: 1px solid #999; border-radius: 6px;
+    background: #fff; cursor: pointer;
+  }
+  button:hover { background: #eef; }
+  button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+  button.primary:hover { background: #1d4ed8; }
+
+  /* 時間軸 */
+  .timeline-wrap { overflow-x: auto; background: #fff; border: 1px solid #ccc; border-radius: 8px; }
+  .timeline { min-width: 900px; }
+  .row { display: flex; border-bottom: 1px solid #e3e3e3; }
+  .row:last-child { border-bottom: none; }
+  .row-label {
+    flex: 0 0 90px; padding: 8px; font-weight: bold; background: #fafafa;
+    border-right: 1px solid #ddd; display: flex; align-items: center;
+    position: sticky; left: 0; z-index: 2;
+  }
+  .track {
+    flex: 1; position: relative; height: 56px;
+    background-image: linear-gradient(to right, #eee 1px, transparent 1px);
+  }
+  .header .track { height: 28px; }
+  .tick { position: absolute; top: 6px; font-size: 12px; color: #555; transform: translateX(2px); }
+  .booking {
+    position: absolute; top: 4px; bottom: 4px; padding: 2px 6px;
+    background: #3b82f6; color: #fff; border-radius: 4px; font-size: 12px;
+    overflow: hidden; cursor: pointer; line-height: 1.3;
+    border: 1px solid #1e40af;
+  }
+  .booking:hover { background: #2563eb; }
+  .booking b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .booking span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .hint { font-size: 12px; color: #666; margin: 6px 0 0; }
+
+  /* 表單 */
+  form {
+    margin-top: 16px; padding: 16px; background: #fff; border: 1px solid #ccc; border-radius: 8px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  }
+  form h2 { grid-column: 1 / -1; margin: 0; font-size: 16px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+  input, select { font: inherit; padding: 6px; border: 1px solid #999; border-radius: 6px; width: 100%; }
+  .full { grid-column: 1 / -1; }
+  #error { grid-column: 1 / -1; color: #b91c1c; background: #fee2e2; padding: 8px; border-radius: 6px; display: none; }
+  #error.show { display: block; }
+
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    form { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<h1>會議室預約看板</h1>
+
+<div class="toolbar">
+  <button type="button" id="btnPrev">◀ 前一天</button>
+  <button type="button" id="btnToday">今天</button>
+  <button type="button" id="btnNext">後一天 ▶</button>
+  <span class="date-label" id="dateLabel"></span>
+</div>
+
+<div class="timeline-wrap"><div class="timeline" id="timeline"></div></div>
+<p class="hint">點選色塊可取消該筆預約。資料僅存在此瀏覽器中。</p>
+
+<form id="bookingForm" novalidate>
+  <h2>新增預約</h2>
+  <label>會議室
+    <select id="fRoom"></select>
+  </label>
+  <label>日期
+    <input type="date" id="fDate">
+  </label>
+  <label>開始時間
+    <select id="fStart"></select>
+  </label>
+  <label>結束時間
+    <select id="fEnd"></select>
+  </label>
+  <label class="full">會議主題
+    <input type="text" id="fTitle" maxlength="50">
+  </label>
+  <label class="full">預約人姓名
+    <input type="text" id="fName" maxlength="20">
+  </label>
+  <div id="error" role="alert"></div>
+  <div class="full"><button type="submit" class="primary">送出預約</button></div>
+</form>
+
+<script>
+// ===== 設定常數（可於此調整）=====
+const ROOMS = ['A 會議室', 'B 會議室', 'C 會議室']; // 會議室清單（3～5 間）
+const DAY_START = 8;   // 可預約起始時（24 小時制）
+const DAY_END = 18;    // 可預約結束時
+const SLOT_MIN = 30;   // 時間單位（分鐘）
+const STORAGE_KEY = 'room-bookings-v1';
+
+// ===== 時間工具 =====
+const pad = n => String(n).padStart(2, '0');
+const toMinutes = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const toTime = min => pad(Math.floor(min / 60)) + ':' + pad(min % 60);
+// 以本機時區產生 YYYY-MM-DD
+const fmtDate = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+
+// ===== 資料層 =====
+function loadBookings() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    return []; // 資料損毀或無法存取時視為空
+  }
+}
+function saveBookings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+let bookings = loadBookings();
+let viewDate = fmtDate(new Date());
+
+// 同房同日，開始 < 既有結束 且 結束 > 既有開始 即重疊；首尾相接不算
+function findOverlap(room, date, start, end) {
+  const s = toMinutes(start), e = toMinutes(end);
+  return bookings.find(b =>
+    b.room === room && b.date === date &&
+    s < toMinutes(b.end) && e > toMinutes(b.start)
+  );
+}
+
+// 回傳錯誤訊息；無錯誤回傳空字串
+function validate(v) {
+  if (!v.room || !v.date || !v.start || !v.end) return '請填寫所有欄位。';
+  if (!v.title.trim()) return '會議主題不可空白。';
+  if (!v.name.trim()) return '預約人姓名不可空白。';
+  if (toMinutes(v.end) <= toMinutes(v.start)) return '結束時間必須晚於開始時間。';
+  if (toMinutes(v.start) < DAY_START * 60 || toMinutes(v.end) > DAY_END * 60) {
+    return '預約時段須在 ' + pad(DAY_START) + ':00–' + pad(DAY_END) + ':00 之間。';
+  }
+  const clash = findOverlap(v.room, v.date, v.start, v.end);
+  if (clash) {
+    return '時段衝突：' + v.room + ' 在 ' + clash.start + '–' + clash.end +
+           ' 已被「' + clash.name + '」預約（' + clash.title + '）。';
+  }
+  return '';
+}
+
+// ===== 畫面 =====
+const $ = id => document.getElementById(id);
+const totalMin = (DAY_END - DAY_START) * 60;
+const pct = min => ((min - DAY_START * 60) / totalMin * 100) + '%';
+
+function render() {
+  const d = parseDate(viewDate);
+  $('dateLabel').textContent = viewDate + '（週' + WEEK[d.getDay()] + '）';
+  const tl = $('timeline');
+  tl.innerHTML = '';
+
+  // 表頭：每小時一個刻度
+  const head = document.createElement('div');
+  head.className = 'row header';
+  head.innerHTML = '<div class="row-label">會議室</div>';
+  const ht = document.createElement('div');
+  ht.className = 'track';
+  for (let h = DAY_START; h < DAY_END; h++) {
+    const t = document.createElement('div');
+    t.className = 'tick';
+    t.style.left = pct(h * 60);
+    t.textContent = pad(h) + ':00';
+    ht.appendChild(t);
+  }
+  head.appendChild(ht);
+  tl.appendChild(head);
+
+  // 每間會議室一列
+  ROOMS.forEach(room => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const label = document.createElement('div');
+    label.className = 'row-label';
+    label.textContent = room;
+    const track = document.createElement('div');
+    track.className = 'track';
+    // 以格線標示每 30 分鐘
+    track.style.backgroundSize = (SLOT_MIN / totalMin * 100) + '% 100%';
+
+    bookings
+      .filter(b => b.room === room && b.date === viewDate)
+      .forEach(b => {
+        const el = document.createElement('div');
+        el.className = 'booking';
+        el.style.left = pct(toMinutes(b.start));
+        el.style.width = ((toMinutes(b.end) - toMinutes(b.start)) / totalMin * 100) + '%';
+        el.title = b.start + '–' + b.end + ' ' + b.title + '（' + b.name + '）';
+        const t1 = document.createElement('b');
+        t1.textContent = b.title;
+        const t2 = document.createElement('span');
+        t2.textContent = b.name + ' ' + b.start + '–' + b.end;
+        el.append(t1, t2);
+        el.addEventListener('click', () => deleteBooking(b.id));
+        track.appendChild(el);
+      });
+
+    row.append(label, track);
+    tl.appendChild(row);
+  });
+}
+
+function showError(msg) {
+  const el = $('error');
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+
+function shiftDate(days) {
+  const d = parseDate(viewDate);
+  d.setDate(d.getDate() + days);
+  setViewDate(fmtDate(d));
+}
+function setViewDate(s) {
+  viewDate = s;
+  $('fDate').value = s; // 表單日期跟隨目前檢視日
+  render();
+}
+
+function deleteBooking(id) {
+  const b = bookings.find(x => x.id === id);
+  if (!b) return;
+  if (!confirm('確定要取消預約？\n' + b.room + ' ' + b.date + ' ' + b.start + '–' + b.end + '\n' + b.title + '（' + b.name + '）')) return;
+  bookings = bookings.filter(x => x.id !== id);
+  saveBookings();
+  render();
+}
+
+// ===== 初始化表單 =====
+function initForm() {
+  $('fRoom').innerHTML = ROOMS.map(r => '<option>' + r + '</option>').join('');
+  const starts = [], ends = [];
+  for (let m = DAY_START * 60; m <= DAY_END * 60; m += SLOT_MIN) {
+    if (m < DAY_END * 60) starts.push(toTime(m));
+    if (m > DAY_START * 60) ends.push(toTime(m));
+  }
+  $('fStart').innerHTML = starts.map(t => '<option>' + t + '</option>').join('');
+  $('fEnd').innerHTML = ends.map(t => '<option>' + t + '</option>').join('');
+  $('fEnd').value = ends[1] || ends[0]; // 預設 1 小時
+
+  $('bookingForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = {
+      room: $('fRoom').value, date: $('fDate').value,
+      start: $('fStart').value, end: $('fEnd').value,
+      title: $('fTitle').value, name: $('fName').value
+    };
+    const msg = validate(v);
+    showError(msg);
+    if (msg) return;
+    bookings.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      room: v.room, date: v.date, start: v.start, end: v.end,
+      title: v.title.trim(), name: v.name.trim()
+    });
+    if (!saveBookings()) showError('預約已加入，但無法寫入瀏覽器儲存空間，重新整理後可能遺失。');
+    $('fTitle').value = '';
+    viewDate = v.date; // 切到剛預約的日期，讓使用者看到結果
+    setViewDate(v.date);
+  });
+
+  $('btnPrev').addEventListener('click', () => shiftDate(-1));
+  $('btnNext').addEventListener('click', () => shiftDate(1));
+  $('btnToday').addEventListener('click', () => setViewDate(fmtDate(new Date())));
+}
+
+initForm();
+setViewDate(viewDate);
+</script>
+</body>
+</html>
