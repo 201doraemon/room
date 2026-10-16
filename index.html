@@ -5,111 +5,177 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>會議室預約看板</title>
 <style>
+  /* 設計變數：低飽和莫蘭迪色系 */
+  :root {
+    --bg: #e8f4fb;
+    --card: #ffffff;
+    --ink: #2b3a4a;
+    --muted: #7a8ea3;
+    --line: #dbe8f2;
+    --accent: #0a9bdc;
+    --accent-dark: #0782ba;
+    --accent-soft: #d4edfa;
+    --danger: #e0626b;
+    --danger-soft: #fde8ea;
+    --shadow: 0 2px 4px rgba(10, 100, 160, .05), 0 8px 24px rgba(10, 100, 160, .09);
+    --shadow-hover: 0 4px 8px rgba(10, 100, 160, .08), 0 12px 28px rgba(10, 100, 160, .16);
+    --ease: cubic-bezier(.22, .8, .36, 1);
+  }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 16px;
+    margin: 0; padding: 40px 16px 56px;
     font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
-    background: #f4f6f8; color: #222;
+    background: var(--bg); color: var(--ink);
+    -webkit-font-smoothing: antialiased;
   }
-  h1 { margin: 0 0 12px; font-size: 20px; }
-  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  .toolbar .date-label { font-weight: bold; min-width: 150px; text-align: center; }
+  .container { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+  /* 通用小卡 */
+  .card {
+    background: var(--card); border-radius: 18px; box-shadow: var(--shadow);
+    padding: 22px; animation: rise .6s var(--ease) both;
+    transition: box-shadow .3s var(--ease), transform .3s var(--ease);
+  }
+  .card:hover { box-shadow: var(--shadow-hover); }
+  .container > .card:nth-child(2) { animation-delay: .08s; }
+  .container > .card:nth-child(3) { animation-delay: .16s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: .04em; }
+  .subtitle { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar .date-label { font-weight: 600; min-width: 150px; text-align: center; font-size: 15px; }
+  .toolbar-top { margin-top: 18px; justify-content: space-between; }
+
+  /* 按鈕 */
   button {
-    font: inherit; padding: 6px 12px; border: 1px solid #999; border-radius: 6px;
-    background: #fff; cursor: pointer;
+    font: inherit; font-size: 14px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+    transition: background .25s var(--ease), transform .2s var(--ease), box-shadow .25s var(--ease), border-color .25s;
   }
-  button:hover { background: #eef; }
-  button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-  button.primary:hover { background: #1d4ed8; }
+  button:hover { background: var(--accent-soft); border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(10, 100, 160, .15); }
+  button:active { transform: translateY(0) scale(.95); box-shadow: none; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); padding: 10px 28px; }
+  button.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
 
   /* 時間軸 */
-  .timeline-wrap { overflow-x: auto; background: #fff; border: 1px solid #ccc; border-radius: 8px; }
-  .timeline { min-width: 900px; }
-  .row { display: flex; border-bottom: 1px solid #e3e3e3; }
+  .timeline-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
+  .timeline { min-width: 820px; }
+  .row { display: flex; border-bottom: 1px solid var(--line); }
   .row:last-child { border-bottom: none; }
   .row-label {
-    flex: 0 0 90px; padding: 8px; font-weight: bold; background: #fafafa;
-    border-right: 1px solid #ddd; display: flex; align-items: center;
+    flex: 0 0 96px; padding: 8px 12px; font-weight: 600; font-size: 14px; background: #f2f8fc;
+    border-right: 1px solid var(--line); display: flex; align-items: center;
     position: sticky; left: 0; z-index: 2;
   }
+  .header .row-label { color: var(--muted); font-weight: 500; font-size: 12px; }
   .track {
-    flex: 1; position: relative; height: 56px;
-    background-image: linear-gradient(to right, #eee 1px, transparent 1px);
+    flex: 1; position: relative; height: 62px;
+    background-image: linear-gradient(to right, #e6f0f7 1px, transparent 1px);
   }
-  .header .track { height: 28px; }
-  .tick { position: absolute; top: 6px; font-size: 12px; color: #555; transform: translateX(2px); }
+  .header .track { height: 30px; }
+  .tick { position: absolute; top: 7px; font-size: 12px; color: var(--muted); transform: translateX(4px); }
   .booking {
-    position: absolute; top: 4px; bottom: 4px; padding: 2px 6px;
-    background: #3b82f6; color: #fff; border-radius: 4px; font-size: 12px;
-    overflow: hidden; line-height: 1.3;
-    border: 1px solid #1e40af;
-    display: flex; align-items: center; gap: 4px;
+    position: absolute; top: 6px; bottom: 6px; padding: 2px 10px;
+    background: var(--accent-soft); color: #0b5f8a; border-radius: 10px; font-size: 12px;
+    overflow: hidden; line-height: 1.35;
+    border-left: 3px solid var(--accent);
+    display: flex; align-items: center; gap: 6px;
+    transform-origin: left center;
+    animation: pop .45s var(--ease) both;
+    transition: box-shadow .25s var(--ease), transform .25s var(--ease), background .25s;
   }
+  .booking:hover { background: #bfe3f7; box-shadow: 0 4px 12px rgba(10, 130, 190, .28); transform: translateY(-1px); z-index: 1; }
+  @keyframes pop { from { opacity: 0; transform: scaleX(.6) translateY(4px); } to { opacity: 1; transform: none; } }
   .booking .info { flex: 1; min-width: 0; }
-  .booking b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .booking span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .booking b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .booking span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; opacity: .75; }
   .booking .cancel {
-    flex: none; padding: 1px 5px; font-size: 11px; line-height: 1.4;
-    color: #b91c1c; border-color: #fca5a5; background: #fff;
+    flex: none; padding: 2px 9px; font-size: 11px; line-height: 1.5;
+    color: var(--danger); border-color: transparent; background: rgba(255, 255, 255, .7);
   }
-  .booking .cancel:hover { background: #fee2e2; }
-  .hint { font-size: 12px; color: #666; margin: 6px 0 0; }
+  .booking .cancel:hover { background: var(--danger-soft); border-color: var(--danger); }
+  .hint { font-size: 12px; color: var(--muted); margin: 12px 2px 0; }
 
   /* 表單 */
-  form {
-    margin-top: 16px; padding: 16px; background: #fff; border: 1px solid #ccc; border-radius: 8px;
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 16px; }
+  form h2 { grid-column: 1 / -1; margin: 0; font-size: 16px; font-weight: 600; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+  input, select {
+    font: inherit; font-size: 14px; color: var(--ink); padding: 10px 12px; width: 100%;
+    border: 1px solid var(--line); border-radius: 12px; background: #fff;
+    transition: border-color .25s, box-shadow .25s;
   }
-  form h2 { grid-column: 1 / -1; margin: 0; font-size: 16px; }
-  label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
-  input, select { font: inherit; padding: 6px; border: 1px solid #999; border-radius: 6px; width: 100%; }
+  input:hover, select:hover { border-color: #b5d3e8; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
   .full { grid-column: 1 / -1; }
-  #error { grid-column: 1 / -1; color: #b91c1c; background: #fee2e2; padding: 8px; border-radius: 6px; display: none; }
-  #error.show { display: block; }
+  #error {
+    grid-column: 1 / -1; color: #a8434c; background: var(--danger-soft); padding: 10px 14px;
+    border-radius: 12px; display: none; font-size: 14px;
+  }
+  #error.show { display: block; animation: shake .45s var(--ease); }
+  @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
 
   @media (max-width: 600px) {
-    body { padding: 10px; }
+    body { padding: 20px 10px 40px; }
+    .card { padding: 16px; border-radius: 16px; }
     form { grid-template-columns: 1fr; }
+    .toolbar-top { justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }
 </style>
 </head>
 <body>
-<h1>會議室預約看板</h1>
+<div class="container">
+  <section class="card">
+    <h1>會議室預約看板</h1>
+    <p class="subtitle">選擇日期，一眼看見每間會議室的使用狀況</p>
+    <div class="toolbar toolbar-top">
+      <div class="toolbar">
+        <button type="button" id="btnPrev">◀ 前一天</button>
+        <button type="button" id="btnToday">今天</button>
+        <button type="button" id="btnNext">後一天 ▶</button>
+        <span class="date-label" id="dateLabel"></span>
+      </div>
+      <button type="button" id="btnExport">匯出 CSV</button>
+    </div>
+  </section>
 
-<div class="toolbar">
-  <button type="button" id="btnPrev">◀ 前一天</button>
-  <button type="button" id="btnToday">今天</button>
-  <button type="button" id="btnNext">後一天 ▶</button>
-  <span class="date-label" id="dateLabel"></span>
-  <button type="button" id="btnExport">匯出 CSV</button>
+  <section class="card">
+    <div class="timeline-wrap"><div class="timeline" id="timeline"></div></div>
+    <p class="hint">按預約色塊上的「取消」可取消該筆預約。資料僅存在此瀏覽器中。</p>
+  </section>
+
+  <section class="card">
+    <form id="bookingForm" novalidate>
+      <h2>新增預約</h2>
+      <label>會議室
+        <select id="fRoom"></select>
+      </label>
+      <label>日期
+        <input type="date" id="fDate">
+      </label>
+      <label>開始時間
+        <select id="fStart"></select>
+      </label>
+      <label>結束時間
+        <select id="fEnd"></select>
+      </label>
+      <label class="full">會議主題
+        <input type="text" id="fTitle" maxlength="50">
+      </label>
+      <label class="full">預約人姓名
+        <input type="text" id="fName" maxlength="20">
+      </label>
+      <div id="error" role="alert"></div>
+      <div class="full"><button type="submit" class="primary">送出預約</button></div>
+    </form>
+  </section>
 </div>
-
-<div class="timeline-wrap"><div class="timeline" id="timeline"></div></div>
-<p class="hint">按預約色塊上的「取消」可取消該筆預約。資料僅存在此瀏覽器中。</p>
-
-<form id="bookingForm" novalidate>
-  <h2>新增預約</h2>
-  <label>會議室
-    <select id="fRoom"></select>
-  </label>
-  <label>日期
-    <input type="date" id="fDate">
-  </label>
-  <label>開始時間
-    <select id="fStart"></select>
-  </label>
-  <label>結束時間
-    <select id="fEnd"></select>
-  </label>
-  <label class="full">會議主題
-    <input type="text" id="fTitle" maxlength="50">
-  </label>
-  <label class="full">預約人姓名
-    <input type="text" id="fName" maxlength="20">
-  </label>
-  <div id="error" role="alert"></div>
-  <div class="full"><button type="submit" class="primary">送出預約</button></div>
-</form>
 
 <script>
 // ===== 設定常數（可於此調整）=====
@@ -247,6 +313,8 @@ function render() {
 function showError(msg) {
   const el = $('error');
   el.textContent = msg;
+  el.classList.remove('show');
+  void el.offsetWidth; // 強制重排，讓連續錯誤也能重播抖動動畫
   el.classList.toggle('show', !!msg);
 }
 
