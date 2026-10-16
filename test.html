@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>衝突檢查測試</title>
+<style>
+  body { font-family: "Microsoft JhengHei", system-ui, sans-serif; margin: 0; padding: 16px; background: #f5f7fa; color: #222; }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  #summary { padding: 12px 16px; border-radius: 8px; font-weight: bold; margin-bottom: 16px; }
+  #summary.ok { background: #e6f7ec; color: #1a7f37; }
+  #summary.fail { background: #fdecea; color: #c62828; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { border: 1px solid #dde3ea; padding: 8px 10px; text-align: left; font-size: 14px; }
+  th { background: #eef2f7; }
+  tr.fail td { background: #fff5f5; }
+  .wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>衝突檢查函式測試（findOverlap）</h1>
+<div id="summary">執行中…</div>
+<div class="wrap">
+  <table>
+    <thead><tr><th>測試名稱</th><th>預期值</th><th>實際值</th><th>結果</th></tr></thead>
+    <tbody id="results"></tbody>
+  </table>
+</div>
+
+<!-- findOverlap 依賴全域 bookings 與 toMinutes（原定義於 index.html），此處提供測試用版本 -->
+<script>
+  const toMinutes = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  let bookings = [];
+</script>
+<script src="app.js"></script>
+<script>
+  const D = '2025-01-01';
+  const mk = (room, start, end, date = D) => ({ id: 'x', room, date, start, end, title: 't', name: 'n' });
+
+  // existing：既有預約；query：[會議室, 日期, 開始, 結束]；expectClash：預期是否衝突
+  const cases = [
+    // 一般情況
+    { name: '完全相同時段 → 衝突', existing: [mk('A', '10:00', '12:00')], query: ['A', D, '10:00', '12:00'], expectClash: true },
+    { name: '完全錯開的時段 → 允許', existing: [mk('A', '09:00', '10:00')], query: ['A', D, '14:00', '15:00'], expectClash: false },
+    // 邊界情況
+    { name: '部分重疊（前段）：新 09:00–11:00 vs 既有 10:00–12:00 → 衝突', existing: [mk('A', '10:00', '12:00')], query: ['A', D, '09:00', '11:00'], expectClash: true },
+    { name: '部分重疊（後段）：新 11:00–13:00 vs 既有 10:00–12:00 → 衝突', existing: [mk('A', '10:00', '12:00')], query: ['A', D, '11:00', '13:00'], expectClash: true },
+    { name: '完全包含（新包住既有）：新 09:00–13:00 vs 既有 10:00–12:00 → 衝突', existing: [mk('A', '10:00', '12:00')], query: ['A', D, '09:00', '13:00'], expectClash: true },
+    { name: '完全包含（既有包住新）：新 10:30–11:30 vs 既有 10:00–12:00 → 衝突', existing: [mk('A', '10:00', '12:00')], query: ['A', D, '10:30', '11:30'], expectClash: true },
+    { name: '緊鄰時段（新在後）：既有 10:00–12:00、新 12:00–14:00 → 允許', existing: [mk('A', '10:00', '12:00')], query: ['A', D, '12:00', '14:00'], expectClash: false },
+    { name: '緊鄰時段（新在前）：既有 12:00–14:00、新 10:00–12:00 → 允許', existing: [mk('A', '12:00', '14:00')], query: ['A', D, '10:00', '12:00'], expectClash: false },
+    { name: '不同會議室同時段 → 允許', existing: [mk('A', '10:00', '12:00')], query: ['B', D, '10:00', '12:00'], expectClash: false },
+    // 補充：不同日期同時段、多筆預約中只與其一衝突
+    { name: '不同日期同時段 → 允許', existing: [mk('A', '10:00', '12:00', '2025-01-02')], query: ['A', D, '10:00', '12:00'], expectClash: false },
+    { name: '多筆預約中僅與其中一筆衝突 → 衝突', existing: [mk('A', '08:00', '09:00'), mk('A', '11:00', '12:00')], query: ['A', D, '11:30', '12:30'], expectClash: true },
+  ];
+
+  const tbody = document.getElementById('results');
+  const label = v => v ? '衝突（回傳預約）' : '允許（undefined）';
+  let passed = 0;
+
+  cases.forEach(c => {
+    bookings = c.existing;
+    const actualClash = !!findOverlap(...c.query);
+    const ok = actualClash === c.expectClash;
+    if (ok) passed++;
+    const tr = document.createElement('tr');
+    if (!ok) tr.className = 'fail';
+    [c.name, label(c.expectClash), label(actualClash), ok ? '✅' : '❌'].forEach(text => {
+      const td = document.createElement('td');
+      td.textContent = text;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  const summary = document.getElementById('summary');
+  summary.textContent = `通過 ${passed} 項／共 ${cases.length} 項`;
+  summary.className = passed === cases.length ? 'ok' : 'fail';
+</script>
+</body>
+</html>
